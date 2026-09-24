@@ -1,6 +1,7 @@
 import { useState, FormEvent } from 'react'
 import { login } from '../api'
 import { User } from '../types'
+import Header from './Header'
 
 export default function Login({ onLogin }: { onLogin: (token: string, user: User) => void }) {
   const [email, setEmail] = useState('')
@@ -19,10 +20,13 @@ export default function Login({ onLogin }: { onLogin: (token: string, user: User
   }
 
   return (
-    <div className="login-wrap">
-      <form className="login-card" onSubmit={onSubmit}>
-        <h1>Pulse</h1>
-        <p className="subtitle">✨🎉 the #1 customer feedback inbox of ALL TIME 🎉✨</p>
+    <>
+      <div className="app">
+        <Header />
+      </div>
+      <div className="login-wrap">
+        <form className="login-card" onSubmit={onSubmit}>
+        <p className="subtitle">the #1 customer feedback inbox of ALL TIME 🚀</p>
         <label>
           Email
           <input
@@ -44,6 +48,7 @@ export default function Login({ onLogin }: { onLogin: (token: string, user: User
         {error && <div className="error">{error}</div>}
         <button type="submit">Sign in</button>
       </form>
-    </div>
+      </div>
+    </>
   )
 }
