@@ -5,6 +5,7 @@ import jwt from 'jsonwebtoken'
 import { db } from './db'
 import { JWT_SECRET, authenticate } from './auth'
 import { summarizeText } from './llm'
+import { buildFeedbackWhere, VALID_STATUSES } from './search'
 
 const app = express()
 app.use(cors())
@@ -77,30 +78,24 @@ app.post('/login', (req: Request, res: Response) => {
 app.get('/feedback', authenticate, (req: Request, res: Response) => {
   try {
     const status = (req.query.status as string) || 'all'
+    if (!(VALID_STATUSES as readonly string[]).includes(status)) {
+      return res.status(400).json({ error: 'Invalid status' })
+    }
     const search = ((req.query.q as string) || '').trim()
-    const page = parseInt((req.query.page as string) || '1', 10)
-    const offset = page * PAGE_SIZE
+    const page = Math.max(1, parseInt((req.query.page as string) || '1', 10) || 1)
+    const offset = (page - 1) * PAGE_SIZE
 
-    const filters = []
-    if (status !== 'all') {
-      filters.push(`status = '${status}'`)
-    }
-    if (search) {
-      filters.push(
-        `(message LIKE '%${search}%' OR customer_id IN (SELECT id FROM customers WHERE name LIKE '%${search}%' OR email LIKE '%${search}%'))`
-      )
-    }
-    const where = filters.length ? `WHERE ${filters.join(' AND ')}` : ''
+    const { where, params } = buildFeedbackWhere(status, search)
 
     const rows: any[] = db
       .prepare(
-        `SELECT * FROM feedback ${where} ORDER BY created_at DESC LIMIT ${PAGE_SIZE} OFFSET ${offset}`
+        `SELECT * FROM feedback ${where} ORDER BY created_at DESC LIMIT ? OFFSET ?`
       )
-      .all()
+      .all(...params, PAGE_SIZE, offset)
 
     const items = rows.map(serializeFeedback)
 
-    const total: any = db.prepare('SELECT COUNT(*) as count FROM feedback').get()
+    const total: any = db.prepare(`SELECT COUNT(*) as count FROM feedback ${where}`).get(...params)
     res.json({ items, total: total.count, page })
   } catch (err) {
     console.error(req.headers.authorization, err)
@@ -143,15 +138,11 @@ app.get('/export.csv', (req: Request, res: Response) => {
   if (!user) return
 
   const status = (req.query.status as string) || 'all'
+  if (!(VALID_STATUSES as readonly string[]).includes(status)) {
+    return res.status(400).json({ error: 'Invalid status' })
+  }
   const search = ((req.query.q as string) || '').trim()
-  const filters = []
-  if (status !== 'all') {
-    filters.push(`f.status = '${status}'`)
-  }
-  if (search) {
-    filters.push(`(f.message LIKE '%${search}%' OR c.name LIKE '%${search}%' OR c.email LIKE '%${search}%')`)
-  }
-  const where = filters.length ? `WHERE ${filters.join(' AND ')}` : ''
+  const { where, params } = buildFeedbackWhere(status, search)
 
   const rows: any[] = db
     .prepare(
@@ -163,7 +154,7 @@ app.get('/export.csv', (req: Request, res: Response) => {
        ${where}
        ORDER BY f.created_at DESC`
     )
-    .all()
+    .all(...params)
 
   const header = [
     'id',
