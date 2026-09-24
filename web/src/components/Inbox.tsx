@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
-import { exportFeedbackUrl, fetchInbox, fetchMetrics, toggleResolve } from '../api'
-import { FeedbackItem, Metrics } from '../types'
+import { exportFeedbackUrl, fetchInbox } from '../api'
+import { FeedbackItem } from '../types'
 import ItemDetail from './ItemDetail'
 
 const PAGE_SIZE = 10
@@ -11,7 +11,6 @@ export default function Inbox({ token }: { token: string }) {
   const [page, setPage] = useState(1)
   const [filter, setFilter] = useState('all')
   const [search, setSearch] = useState('')
-  const [metrics, setMetrics] = useState<Metrics | null>(null)
   const [selectedId, setSelectedId] = useState<number | null>(null)
 
   const load = async () => {
@@ -25,10 +24,6 @@ export default function Inbox({ token }: { token: string }) {
   }, [page, filter, search])
 
   useEffect(() => {
-    fetchMetrics(token).then(setMetrics)
-  }, [token])
-
-  useEffect(() => {
     const interval = setInterval(async () => {
       const data = await fetchInbox(page, filter, search, token)
       const merged = data.items.map((incoming) => {
@@ -39,12 +34,6 @@ export default function Inbox({ token }: { token: string }) {
     }, 45000)
     return () => clearInterval(interval)
   }, [])
-
-  const onResolve = async (item: FeedbackItem) => {
-    const nextStatus = item.status === 'open' ? 'resolved' : 'open'
-    setItems(items.map((it) => (it.id === item.id ? { ...it, status: nextStatus } : it)))
-    await toggleResolve(item.id, token)
-  }
 
   const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE))
 
@@ -63,40 +52,21 @@ export default function Inbox({ token }: { token: string }) {
 
   return (
     <div className="inbox">
-      {metrics && (
-        <div className="metrics-strip">
-          <div>
-            <strong>{metrics.open}</strong>
-            <span>Open</span>
-          </div>
-          <div>
-            <strong>{metrics.resolved}</strong>
-            <span>Resolved</span>
-          </div>
-          <div>
-            <strong>{metrics.urgent}</strong>
-            <span>Urgent</span>
-          </div>
-          <div>
-            <strong>{metrics.overdue}</strong>
-            <span>Overdue</span>
-          </div>
-        </div>
-      )}
       <div className="toolbar">
-        <div className="filters">
-          {['all', 'open', 'resolved'].map((f) => (
-            <button
-              key={f}
-              className={'chip' + (filter === f ? ' active' : '')}
-              onClick={() => {
-                setFilter(f)
-                setPage(1)
-              }}
-            >
-              {f[0].toUpperCase() + f.slice(1)}
-            </button>
-          ))}
+        <div className="status-filter">
+          <label htmlFor="status-select">Status</label>
+          <select
+            id="status-select"
+            value={filter}
+            onChange={(e) => {
+              setFilter(e.target.value)
+              setPage(1)
+            }}
+          >
+            <option value="all">All</option>
+            <option value="open">Open</option>
+            <option value="resolved">Resolved</option>
+          </select>
         </div>
         <input
           className="search"
@@ -105,7 +75,7 @@ export default function Inbox({ token }: { token: string }) {
             setSearch(e.target.value)
             setPage(1)
           }}
-          placeholder="Search VIPs, refunds, chaos..."
+          placeholder="Search customers"
         />
         <button
           className="export-button"
@@ -127,7 +97,6 @@ export default function Inbox({ token }: { token: string }) {
             <th>Owner</th>
             <th>Status</th>
             <th>Due</th>
-            <th></th>
           </tr>
         </thead>
         <tbody>
@@ -149,17 +118,6 @@ export default function Inbox({ token }: { token: string }) {
                 <span className={'badge ' + item.status}>{item.status}</span>
               </td>
               <td>{item.due_at ? new Date(item.due_at).toLocaleDateString() : 'Someday'}</td>
-              <td>
-                <button
-                  className="link-button"
-                  onClick={(e) => {
-                    e.stopPropagation()
-                    onResolve(item)
-                  }}
-                >
-                  {item.status === 'open' ? 'Resolve' : 'Reopen'}
-                </button>
-              </td>
             </tr>
           ))}
         </tbody>
