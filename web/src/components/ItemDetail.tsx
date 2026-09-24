@@ -98,7 +98,7 @@ export default function ItemDetail({
   if (!item) {
     return (
       <div className="detail">
-        <button className="link-button" onClick={onBack}>
+        <button className="link-button back-button" onClick={onBack}>
           ← Back to inbox
         </button>
       </div>
@@ -107,7 +107,7 @@ export default function ItemDetail({
 
   return (
     <div className="detail">
-      <button className="link-button" onClick={onBack}>
+      <button className="link-button back-button" onClick={onBack}>
         ← Back to inbox
       </button>
       <div className="detail-grid">
